@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
 // ANSI Color Codes for enhanced terminal output
 class Colors {
     public static final String RESET = "\u001B[0m";
@@ -83,6 +84,7 @@ class SharedResources {
         }
         executionLog.add(message);
     }
+    public static final Semaphore cpuSemaphore = new Semaphore(1);
 }
 
 // Class representing a process that implements Runnable to be run by a thread
@@ -108,8 +110,8 @@ class Process implements Runnable {
     
     @Override
     public void run() {
-        // TODO #3: Acquire CPU semaphore before executing
-        // This ensures only allowed number of processes run simultaneously
+        try {
+            SharedResources.cpuSemaphore.acquire();
         
         try {
             if (startTime == -1) {
@@ -171,8 +173,10 @@ class Process implements Runnable {
             System.out.println();
             
         } finally {
-            // TODO #4: Release CPU semaphore here
-            // Always release in finally block to prevent deadlocks!
+           SharedResources.cpuSemaphore.release();
+        }
+            } catch (InterruptedException e) {
+            System.out.println(Colors.RED + "\n  ✗ " + name + " was interrupted." + Colors.RESET);
         }
     }
     
@@ -191,7 +195,9 @@ class Process implements Runnable {
     }
     
     public void runToCompletion() {
-        // TODO: Similar synchronization needed here
+        try {
+            SharedResources.cpuSemaphore.acquire();
+           
         try {
             System.out.println(Colors.BRIGHT_CYAN + "  ⚡ " + Colors.BOLD + Colors.CYAN + name + 
                               Colors.RESET + Colors.BRIGHT_CYAN + " is the last process, running to completion" + 
@@ -207,6 +213,9 @@ class Process implements Runnable {
             System.out.println(Colors.BRIGHT_GREEN + "  ✓ " + Colors.BOLD + Colors.CYAN + name + 
                               Colors.RESET + Colors.BRIGHT_GREEN + " finished execution!" + Colors.RESET);
             System.out.println();
+        } finally {
+                SharedResources.cpuSemaphore.release();
+            }
         } catch (InterruptedException e) {
             System.out.println(Colors.RED + "  ✗ " + name + " was interrupted." + Colors.RESET);
         }
